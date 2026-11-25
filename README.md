@@ -7,17 +7,31 @@ window, video display sa pangalawang monitor (projector/TV). Java-based, native 
 - Native app: walang kailangan (naka-bundle ang JRE 17)
 - Source: JDK 17+ (Zulu)
 
-## Native app (jpackage)
-May ready-made na native app sa `jpackage-output/MediaPlayer/`.
+## Native app (JavaFX — true native window, walang browser)
+May ready-made na native app sa `media-player-native/`. Gumagamit ng JavaFX WebView
+(native window, hindi browser). Walang address bar, walang tabs, walang browser chrome.
+
+**Paano patakbuhin:**
+- I-double-click ang `media-player-native\run_hidden.vbs`
+- Awtomatikong magbubukas ang JavaFX native window sa http://localhost:8090/
+- May sariling JRE (Java 17) + JavaFX — hindi na kailangan ng Java install
+
+**Kailangan (para sa development):**
+- JDK 17+ (Zulu)
+- JavaFX SDK 21 (naka-download sa temp folder, o i-download mula sa https://gluonhq.com/products/javafx/)
+- `--module-path` at `--add-modules javafx.controls,javafx.web`
+
+## Native app (jpackage — Chrome/Edge app mode)
+May ready-made na native app sa `jpackage-output/VideoApp/`. Nagbubukas ng Chrome/Edge
+sa app mode (walang address bar/tabs). Gumagamit ng system browser engine.
 
 **Para sa native window (walang browser chrome):**
 - I-double-click ang `run_hidden.vbs` — magbubukas ng Chrome/Edge sa app mode
-  (walang address bar/tabs), awtomatikong magbubukas ang server at browser
 - Gumagana kahit may spaces sa path (hindi tulad ng .exe)
 
 **Alternatibo (.exe launcher):**
-- `MediaPlayer.exe` — native app launcher (pero may "Failed to launch JVM" error
-  kung may spaces sa path; gumagana lang kung nasa path na walang space, hal. C:\MediaPlayer)
+- `VideoApp.exe` — native app launcher (pero may "Failed to launch JVM" error
+  kung may spaces sa path)
 
 **Alternatibo (console):**
 - `run.bat` — console window, gumagana sa anumang path
