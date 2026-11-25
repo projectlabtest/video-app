@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Media Player Remote</title>
+<style>
+  :root{--bg:#0b0d12;--panel:#13161d;--border:#2a2f3a;--accent:#00e5ff;--text:#e6e9ef;--muted:#8a93a6;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;overflow:hidden;}
+  .wrap{display:flex;flex-direction:column;height:100vh;padding:12px;gap:10px;}
+  .now{font-size:14px;font-weight:600;padding:10px;background:var(--panel);border-radius:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .time{font-size:12px;color:var(--muted);text-align:center;}
+  .seek{width:100%;}
+  .transport{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  .transport button{padding:14px;font-size:16px;border-radius:10px;}
+  .transport .play{grid-column:1/4;background:var(--accent);color:#000;font-weight:700;}
+  .vol{display:flex;align-items:center;gap:8px;}
+  .vol input{flex:1;}
+  .tracks{flex:1;overflow:auto;background:var(--panel);border-radius:8px;padding:6px;}
+  .tr{padding:8px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;}
+  .tr:hover{background:#1a1e27;}
+  .tr.active{background:#00e5ff22;border-left:2px solid var(--accent);}
+  .status{font-size:11px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="now" id="now">— no track —</div>
+  <div class="time" id="time">0:00 / 0:00</div>
+  <input type="range" class="seek" id="seek" min="0" max="1000" value="0">
+  <div class="transport">
+    <button id="prev">⏮</button>
+    <button id="next">⏭</button>
+    <button id="stop" style="background:#ff3d81;color:#fff;">⏹</button>
+    <button class="play" id="play">▶ Play</button>
+  </div>
+  <div class="vol">
+    <span>🔊</span>
+    <input type="range" id="vol" min="0" max="1" step="0.01" value="0.85">
+  </div>
+  <div class="tracks" id="tracks"></div>
+  <div class="status" id="status">Connecting...</div>
+</div>
+<script>
+function fmtTime(s){ if(!isFinite(s)) return '0:00'; const m=Math.floor(s/60); const sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; }
+function sendCmd(action, value){ fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,value,from:'remote'})}).catch(()=>{}); }
+
+let tracks=[];
+async function loadLib(){ try{ const r=await fetch('/api/library'); const d=await r.json(); if(d.ok){ tracks=d.tracks; renderTracks(); } }catch(e){} }
+function renderTracks(){
+  const el=document.getElementById('tracks'); el.innerHTML='';
+  tracks.forEach(t=>{
+    const row=document.createElement('div');
+    row.className='tr';
+    row.textContent=t.name;
+    row.addEventListener('click',()=>{ sendCmd('load', t.id); });
+    el.appendChild(row);
+  });
+}
+
+let lastPb=null;
+async function poll(){
+  try{
+    const r=await fetch('/api/status'); const d=await r.json();
+    if(!d.ok) return;
+    const pb=d.playback||{};
+    document.getElementById('now').textContent = pb.trackName || '— no track —';
+    document.getElementById('time').textContent = fmtTime(pb.currentTime||0)+' / '+fmtTime(pb.duration||0);
+    const seek=document.getElementById('seek');
+    if(document.activeElement!==seek && pb.duration) seek.value = Math.round((pb.currentTime/pb.duration)*1000);
+    document.getElementById('play').textContent = pb.playing? '⏸ Pause' : '▶ Play';
+    document.getElementById('vol').value = pb.volume!=null? pb.volume : 0.85;
+    document.getElementById('status').textContent = d.trackCount+' tracks · '+ (d.lan_ip||'localhost');
+    // highlight active track
+    document.querySelectorAll('.tr').forEach((el,i)=>{
+      el.classList.toggle('active', tracks[i] && tracks[i].id===pb.trackId);
+    });
+    lastPb=pb;
+  }catch(e){ document.getElementById('status').textContent='Disconnected'; }
+}
+
+document.getElementById('play').addEventListener('click',()=>sendCmd('play'));
+document.getElementById('prev').addEventListener('click',()=>sendCmd('prev'));
+document.getElementById('next').addEventListener('click',()=>sendCmd('next'));
+document.getElementById('stop').addEventListener('click',()=>sendCmd('stop'));
+document.getElementById('seek').addEventListener('input',e=>{
+  // send seek as ratio -> server stores; main client interprets? main client expects seconds value
+  // We'll send seconds by computing from last duration
+  const dur = lastPb? lastPb.duration : 0;
+  if(dur) sendCmd('seek', (parseFloat(e.target.value)/1000)*dur);
+});
+document.getElementById('vol').addEventListener('input',e=>sendCmd('volume', parseFloat(e.target.value)));
+
+loadLib();
+setInterval(poll, 1000);
+poll();
+</script>
+</body>
+</html>

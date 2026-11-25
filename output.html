@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Media Output</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif;overflow:hidden;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;}
+  video{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;}
+  #overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font-size:20px;color:#888;}
+  #overlay.hidden{display:none;}
+  #info{position:fixed;bottom:8px;left:8px;font-size:12px;color:#666;pointer-events:none;}
+</style>
+</head>
+<body>
+<div id="wrap"><video id="v" autoplay playsinline></video></div>
+<div id="overlay">Waiting for video…</div>
+<div id="hint" style="position:fixed;bottom:12px;right:12px;font-size:12px;color:#666;pointer-events:none;">Click anywhere to fullscreen</div>
+<div id="info" id="info"></div>
+<script>
+const video = document.getElementById('v');
+const overlay = document.getElementById('overlay');
+const info = document.getElementById('info');
+let currentId = null;
+let audioCtx = null, gainNode = null, sourceNode = null, connected = false;
+
+function fmtTime(s){ if(!isFinite(s)) return '0:00'; const m=Math.floor(s/60); const sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; }
+
+function ensureAudio(){
+  if(audioCtx) return;
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  gainNode = audioCtx.createGain();
+  gainNode.gain.value = 1;
+  gainNode.connect(audioCtx.destination);
+}
+function connectSource(){
+  if(connected) return;
+  ensureAudio();
+  try { sourceNode = audioCtx.createMediaElementSource(video); sourceNode.connect(gainNode); connected = true; } catch(e){ console.warn(e); }
+}
+
+function reportState(){
+  const pb = {
+    trackId: currentId,
+    currentTime: video.currentTime || 0,
+    duration: video.duration || 0,
+    playing: !video.paused,
+    volume: gainNode ? gainNode.gain.value : 1,
+    trackName: currentId ? (window._trackName || '') : ''
+  };
+  fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pb)}).catch(()=>{});
+}
+
+async function loadVideo(id){
+  if(!id) return;
+  if(id === currentId && video.src) return;
+  currentId = id;
+  // fetch track name
+  try{
+    const r = await fetch('/api/library');
+    const d = await r.json();
+    const t = (d.tracks||[]).find(x=>x.id===id);
+    if(t){ window._trackName = t.name; info.textContent = t.name; }
+  }catch(e){}
+  video.src = '/media?id='+encodeURIComponent(id);
+  video.load();
+  overlay.classList.add('hidden');
+}
+
+function executeCommand(c){
+  switch(c.action){
+    case 'play': ensureAudio(); if(audioCtx.state==='suspended') audioCtx.resume(); video.play().catch(()=>{}); break;
+    case 'pause': video.pause(); break;
+    case 'stop': video.pause(); video.currentTime=0; break;
+    case 'seek': if(isFinite(c.value)) video.currentTime = c.value; break;
+    case 'volume': if(gainNode) gainNode.gain.value = c.value; else video.volume = c.value; break;
+    case 'mute': video.muted = !video.muted; break;
+    case 'load': loadVideo(c.value); break;
+    case 'next': /* handled by controller sending load */ break;
+    case 'fullscreen': if(video.requestFullscreen) video.requestFullscreen().catch(()=>{}); break;
+  }
+}
+
+async function poll(){
+  try{
+    const r = await fetch('/api/output-commands');
+    const d = await r.json();
+    if(d.ok && d.commands && d.commands.length){
+      for(const c of d.commands) executeCommand(c);
+      await fetch('/api/output-commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clear:true})});
+    }
+  }catch(e){}
+}
+
+video.addEventListener('loadedmetadata', ()=>{ connectSource(); reportState(); });
+video.addEventListener('timeupdate', ()=>{ if(Math.floor(video.currentTime)%1===0) reportState(); });
+video.addEventListener('play', reportState);
+video.addEventListener('pause', reportState);
+video.addEventListener('ended', reportState);
+
+// auto-fullscreen on load (best effort)
+window.addEventListener('load', ()=>{
+  // try fullscreen after user gesture not possible; provide click
+});
+document.addEventListener('click', ()=>{ if(!document.fullscreenElement && video.requestFullscreen) { video.requestFullscreen().catch(()=>{}); const h=document.getElementById('hint'); if(h) h.style.display='none'; } }, {once:true});
+
+setInterval(poll, 800);
+poll();
+</script>
+</body>
+</html>

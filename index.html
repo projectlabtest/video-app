@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Media Player — Button Pad</title>
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#13161d; --panel2:#1a1e27; --border:#2a2f3a;
+    --accent:#00e5ff; --accent2:#ff3d81; --accent3:#ffd166; --text:#e6e9ef; --muted:#8a93a6;
+    --pad:#1f2430; --pad-hover:#2a3142; --pad-active:#00e5ff22; --pad-playing:#ff3d8133;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:Segoe UI,system-ui,sans-serif;overflow:hidden;}
+  .app{display:grid;grid-template-rows:auto 1fr;height:100vh;overflow:hidden;}
+  header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(180deg,#161a22,#0b0d12);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  header h1{font-size:16px;margin:0;letter-spacing:1px;color:var(--accent);}
+  .status{font-size:11px;color:var(--muted);margin-left:8px;}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;}
+  button:hover{background:var(--pad-hover);border-color:var(--accent);}
+  button.primary{background:var(--accent);color:#000;font-weight:600;}
+  button.danger{background:var(--accent2);color:#fff;}
+  select,input{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;}
+  input[type=range]{accent-color:var(--accent);}
+  .main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr) minmax(0,1.6fr);gap:0;overflow:hidden;}
+  @media (max-width:900px){ .main{grid-template-columns:1fr;overflow:auto;} .col{min-height:220px;} }
+  .col{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+  .col:last-child{border:2px solid var(--accent);background:var(--panel);margin:4px;border-radius:8px;padding:4px;overflow-x:hidden;overflow-y:auto;align-self:start;}
+  .col-head{padding:8px 12px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .lib-footer{padding:8px 12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;}
+  .program-list{flex:1;overflow:auto;padding:6px;display:flex;flex-direction:column;gap:6px;min-height:60px;}
+  .prog-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;}
+  .prog-card:hover{border-color:var(--accent);}
+  .prog-card.active{border-color:var(--accent3);box-shadow:0 0 8px var(--accent3);}
+  .prog-card.dragover{border-color:var(--accent);background:var(--pad-active);}
+  .prog-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+  .prog-name{font-size:12px;font-weight:600;color:var(--accent);}
+  .prog-del{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;}
+  .prog-del:hover{color:var(--accent2);}
+  .prog-tracks{font-size:11px;color:var(--muted);}
+  .lib-tools{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);}
+  .lib-search{flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;}
+  .lib-list{flex:1;overflow:auto;padding:4px;}
+  .lib-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:grab;font-size:12px;border-bottom:1px solid var(--border);}
+  .lib-row:hover{background:var(--panel2);}
+  .lib-row.selected{background:var(--pad-active);border-left:2px solid var(--accent);}
+  .lib-row .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lib-row .dur{color:var(--muted);font-size:11px;}
+  .lib-row .type{font-size:10px;color:var(--accent);padding:1px 5px;border:1px solid var(--accent);border-radius:4px;}
+  .lib-empty{padding:16px 12px;font-size:11px;color:var(--muted);text-align:center;font-style:italic;}
+  .lib-row .addp{padding:2px 7px;line-height:1;color:var(--accent);border-color:var(--accent);}
+  .lib-row .del{opacity:0;padding:2px 7px;line-height:1;color:var(--muted);}
+  .lib-row:hover .del{opacity:1;}
+  .lib-row .del:hover{color:#fff;background:var(--accent2);border-color:var(--accent2);}
+  .lib-row .inprog{color:#3ddc97;font-size:12px;padding:0 4px;}
+  #toggleAdd.on{background:var(--accent);color:#04121a;border-color:var(--accent);}
+  .pad-toolbar{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap;font-size:11px;color:var(--muted);}
+  .pad-grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(0,1fr);gap:8px;padding:10px;overflow:hidden;}
+  .pad{background:var(--pad);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:4px;cursor:pointer;user-select:none;position:relative;transition:transform .05s,background .15s;min-width:0;min-height:0;overflow:hidden;}
+  .pad:hover{background:var(--pad-hover);transform:scale(1.02);}
+  .pad.playing{background:var(--pad-playing);border-color:var(--accent2);box-shadow:0 0 12px var(--accent2);}
+  .pad .idx{position:absolute;top:6px;left:8px;font-size:12px;color:var(--muted);}
+  .pad .label{font-size:12px;word-break:break-word;line-height:1.3;max-height:100%;overflow:hidden;}
+  .pad.empty .label{color:var(--muted);font-style:italic;}
+  .pad .remove{position:absolute;top:0;right:0;font-size:13px;line-height:1;color:var(--muted);display:none;padding:2px 5px;border-radius:0 0 0 6px;cursor:pointer;}
+  .pad:hover .remove{display:block;}
+  .pad.empty .remove{display:none !important;}
+  .pad .remove:hover{color:#fff;background:var(--accent2);}
+  .pad .decktag{position:absolute;bottom:2px;right:4px;font-size:9px;color:var(--muted);opacity:.7;}
+  .pad.padA{border-top:2px solid var(--accent);}
+  .deck{padding:10px;border-bottom:1px solid var(--border);min-width:0;overflow:hidden;}
+  .deck h3{margin:0 0 6px 0;font-size:13px;color:var(--accent);}
+  .deck .track-name{font-size:12px;color:var(--text);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .deck .media-area{width:100%;aspect-ratio:16/9;background:#222;border:3px solid #00ff00;border-radius:6px;margin-bottom:6px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .deck .media-area video{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;}
+  .deck .media-area .vizcanvas{width:100%;height:100%;display:block;}
+  .deck .vu{height:12px;background:#111;border-radius:4px;overflow:hidden;margin-bottom:6px;}
+  .deck .vu .bar{height:100%;width:0%;background:linear-gradient(90deg,#0f0,#ff0,#f00);transition:width .1s;}
+  .deck .seekrow{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+  .deck .seekrow input{flex:1;}
+  .deck .seekrow span{font-size:11px;color:var(--muted);white-space:nowrap;}
+  .deck .transport{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;}
+  .deck .transport button{flex:1 1 auto;}
+  .deck .transport button.playbtn{font-weight:600;min-width:84px;}
+  .deck .transport button.playbtn.is-playing{background:var(--accent);border-color:var(--accent);color:#04121a;box-shadow:0 0 10px var(--accent);}
+  .deck .sliders{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .deck .eq{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+  .deck .eq .knob{display:flex;flex-direction:column;align-items:center;font-size:10px;color:var(--muted);min-width:0;}
+  .deck .eq .knob input{width:100%;min-width:0;max-width:100%;}
+  .master{padding:10px;font-size:12px;}
+  .remote-info{font-size:11px;color:var(--muted);padding:4px 12px;border-top:1px solid var(--border);}
+  .remote-info a{color:var(--accent);}
+  .screenbox{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin:8px;display:flex;flex-direction:column;gap:6px;}
+  .screenbox h3{font-size:11px;color:var(--muted);margin:0;}
+  .screenbox button{font-size:11px;}
+  .screen-status{font-size:11px;color:var(--muted);}
+  .screen-status.ok{color:#3ddc97;}
+  ::-webkit-scrollbar{width:0;height:0;display:none;}
+  ::-webkit-scrollbar-thumb{display:none;}
+  *{scrollbar-width:none;-ms-overflow-style:none;}
+  .modal-backdrop{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:10000;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;min-width:320px;max-width:90vw;}
+  .modal-title{font-size:13px;font-weight:600;margin-bottom:10px;color:var(--accent);}
+  .modal input{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:12px;outline:none;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;}
+  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent);color:var(--text);padding:8px 14px;border-radius:8px;font-size:12px;z-index:9999;}
+  .gear-wrap{position:relative;margin-left:auto;}
+  #gearBtn{font-size:16px;padding:4px 10px;line-height:1;}
+  .gear-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:6px;flex-direction:column;gap:6px;min-width:170px;z-index:1000;box-shadow:0 10px 28px #000a;}
+  .gear-menu.open{display:flex;}
+  .gear-menu button{text-align:left;width:100%;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🎬 MEDIA PLAYER</h1>
+    <span class="status" id="statusText">Ready</span>
+    <div class="gear-wrap">
+      <button id="gearBtn" title="Settings">⚙</button>
+      <div class="gear-menu" id="gearMenu">
+        <button id="uploadBtn">Upload Files</button>
+        <button id="openScreenBtn">Open Output Screen</button>
+        <button id="clearLib" class="danger">Clear Library</button>
+      </div>
+      <input type="file" id="uploadInput" multiple accept="video/*,audio/*,.mp4,.mkv,.avi,.mov,.wmv,.flv,.webm,.mp3,.wav,.ogg,.flac,.m4a,.aac" hidden>
+    </div>
+
+  </header>
+  <div class="main">
+    <!-- Library -->
+    <div class="col">
+      <div class="col-head">Library <span id="libCount">0</span></div>
+      <div class="lib-tools">
+        <input class="lib-search" id="libSearch" placeholder="Search tracks...">
+        <button id="toggleAdd" title="Add tracks to program">➕ Add</button>
+      </div>
+      <div class="lib-list" id="libList"></div>
+      <div class="lib-footer">
+        <span id="pageInfo">Page 1</span>
+        <span>Drag to pad</span>
+      </div>
+    </div>
+    <!-- Pads -->
+    <div class="col">
+      <div class="col-head">Pad Bank <span id="bankInfoA"></span></div>
+      <div class="pad-toolbar">32 buttons. Click = play. Drag track para i-assign.</div>
+      <div class="pad-grid" id="padGridA"></div>
+    </div>
+    <!-- Decks -->
+    <div class="col">
+      <div class="col-head">Deck</div>
+      <div class="deck" id="deckA">
+        <h3>DECK A</h3>
+        <div class="track-name" id="nameA">— no track —</div>
+        <div class="media-area" id="mediaAreaA"><span style="color:var(--muted);font-size:12px;">Load a track</span></div>
+        <div class="vu"><div class="bar" id="vuA"></div></div>
+        <div class="seekrow">
+          <input type="range" id="seekA" min="0" max="1000" value="0">
+          <span id="timeA">0:00 / 0:00</span>
+        </div>
+        <div class="transport">
+          <button id="playA" class="playbtn">▶ Play</button>
+          <button id="stopA" class="danger">⏹ Stop</button>
+          <button id="nextA">⏭ Next</button>
+        </div>
+        <div class="sliders">
+          <div class="ctrl"><label>Vol</label><input type="range" id="volA" min="0" max="1" step="0.01" value="0.85"></div>
+          <div class="ctrl"><label>Speed</label><input type="range" id="speedA" min="0.5" max="2" step="0.05" value="1"></div>
+        </div>
+        <div class="eq">
+          <div class="knob"><label>Low</label><input type="range" id="lowA" min="-12" max="12" step="1" value="0"></div>
+          <div class="knob"><label>Mid</label><input type="range" id="midA" min="-12" max="12" step="1" value="0"></div>
+          <div class="knob"><label>High</label><input type="range" id="highA" min="-12" max="12" step="1" value="0"></div>
+        </div>
+      </div>
+      <div class="screenbox">
+        <h3>Extended Screen (2nd monitor)</h3>
+        <div class="screen-status" id="screenStatus">Not connected</div>
+        <div class="screen-status">Tip: i-click ang output window para mag-fullscreen.</div>
+      </div>
+      <div class="master">
+        <div class="ctrl"><label>Now Playing</label><span id="nowPlaying" style="font-size:12px">—</span></div>
+      </div>
+      <div class="status" id="statusText2">Ready.</div>
+      <div class="remote-info">Remote: <a id="remoteLink" href="#" target="_blank">open on phone</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Program name</div>
+    <input type="text" id="modalInput" placeholder="">
+    <div class="modal-actions">
+      <button id="modalCancel">Cancel</button>
+      <button id="modalOk" class="primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PADS_PER_BANK = 32;
+let tracks = [];
+let programs = [];
+let activeProgramId = null;
+let pads = {};
+let currentBank = 0;
+let pageSize = 60, currentPage = 0;
+let filteredTracks = [];
+let selectedTrackIds = new Set();
+let addMode = false;
+let audioCtx = null;
+const decks = {
+  A: { media: null, trackId: null, playing: false, audioConnected: false, vizCanvas: null, analyser: null, gainNode: null, eqNodes: [], sourceNode: null },
+};
+let targetDeck = 'A';
+let playingPadKey = null;
+let outputWindow = null;
+let outputOpen = false;
+
+function fmtTime(s){ if(!isFinite(s)) return '0:00'; const m=Math.floor(s/60); const sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; }
+function toast(msg){ let el=document.querySelector('.toast'); if(!el){el=document.createElement('div');el.className='toast';document.body.appendChild(el);} el.textContent=msg; clearTimeout(window._tt); window._tt=setTimeout(()=>el.remove(),2200); }
+function askText(title, ph='', dv=''){ return new Promise(resolve=>{ const back=document.getElementById('modalBackdrop'); document.getElementById('modalTitle').textContent=title; const inp=document.getElementById('modalInput'); inp.placeholder=ph||''; inp.value=dv||''; back.classList.add('open'); setTimeout(()=>{inp.focus();inp.select();},30); const done=v=>{back.classList.remove('open');resolve(v);}; document.getElementById('modalOk').onclick=()=>{const v=inp.value.trim(); if(!v){inp.focus();return;} done(v);}; document.getElementById('modalCancel').onclick=()=>done(null); inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('modalOk').click();}else if(e.key==='Escape'){e.preventDefault();done(null);}}; }); }
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// ---------- audio ----------
+function ensureAudioCtx(){ if(audioCtx) return; audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+function setupDeckAudio(d){
+  const deck = decks[d];
+  if(deck.analyser) return;
+  ensureAudioCtx();
+  deck.gainNode = audioCtx.createGain();
+  deck.gainNode.gain.value = parseFloat(document.getElementById('vol'+d).value);
+  deck.analyser = audioCtx.createAnalyser();
+  deck.analyser.fftSize = 256;
+  const freqs=[320,1000,3200], types=['lowshelf','peaking','highshelf'];
+  deck.eqNodes = freqs.map((f,i)=>{ const n=audioCtx.createBiquadFilter(); n.type=types[i]; n.frequency.value=f; if(i===1) n.Q.value=1; return n; });
+  for(let i=0;i<deck.eqNodes.length-1;i++) deck.eqNodes[i].connect(deck.eqNodes[i+1]);
+  deck.eqNodes[deck.eqNodes.length-1].connect(deck.gainNode);
+  deck.gainNode.connect(deck.analyser);
+  deck.analyser.connect(audioCtx.destination);
+}
+function connectDeckSource(d, el){
+  const deck = decks[d];
+  if(deck.audioConnected) return;
+  setupDeckAudio(d);
+  try { deck.sourceNode = audioCtx.createMediaElementSource(el); deck.sourceNode.connect(deck.eqNodes[0]); deck.audioConnected = true; } catch(e){ console.warn('connectSource', e); }
+}
+function applyEq(d){ const deck=decks[d]; if(!deck.eqNodes.length) return; deck.eqNodes[0].gain.value=parseFloat(document.getElementById('low'+d).value); deck.eqNodes[1].gain.value=parseFloat(document.getElementById('mid'+d).value); deck.eqNodes[2].gain.value=parseFloat(document.getElementById('high'+d).value); }
+function applyVol(d){ const deck=decks[d]; if(deck.gainNode) deck.gainNode.gain.setTargetAtTime(parseFloat(document.getElementById('vol'+d).value), audioCtx.currentTime, 0.05); }
+function applySpeed(d){ const deck=decks[d]; if(deck.media) deck.media.playbackRate = parseFloat(document.getElementById('speed'+d).value); }
+
+// ---------- extended screen output ----------
+function sendCmd(action, value){ fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,value,from:'controller',target:'output'})}).catch(()=>{}); }
+
+function ensureOutputWindow(){
+  if(outputWindow && !outputWindow.closed){ outputOpen=true; updateScreenStatus(); return; }
+  openOutputWindow();
+}
+async function openOutputWindow(){
+  const url = window.location.origin + '/output.html';
+  // try Screen Details API for extended screen placement
+  let features = 'popup,width=1920,height=1080';
+  if('getScreenDetails' in window){
+    try{
+      const details = await window.getScreenDetails();
+      const secondary = details.screens.find(s=>!s.isPrimary) || (details.screens.length>1 ? details.screens[1] : null);
+      if(secondary){ features = 'popup,left='+secondary.availLeft+',top='+secondary.availTop+',width='+secondary.availWidth+',height='+secondary.availHeight; }
+    }catch(e){ /* permission denied or unsupported - use default */ }
+  }
+  outputWindow = window.open(url);
+  if(outputWindow){
+    outputOpen = true;
+    updateScreenStatus();
+    toast('Output window opened. I-drag sa extended screen kung kailangan, i-click para fullscreen.');
+    setTimeout(()=>{ try{ window.focus(); }catch(e){} }, 200);
+  } else {
+    toast('Pop-up blocked! I-allow ang pop-ups: i-click ang icon sa address bar → "Always allow pop-ups"');
+  }
+}
+function updateScreenStatus(){
+  const el = document.getElementById('screenStatus');
+  if(outputOpen && outputWindow && !outputWindow.closed){ el.textContent='Connected ✓'; el.classList.add('ok'); }
+  else { el.textContent='Not connected'; el.classList.remove('ok'); outputOpen=false; }
+}
+
+// ---------- data ----------
+async function loadTracks(){
+  try{ const r=await fetch('/api/library'); const d=await r.json(); if(d.ok){ tracks=d.tracks; applyFilter(); updateCounts(); } }catch(e){ toast('Library load failed'); }
+}
+async function loadPrograms(){
+  try{ const r=await fetch('/api/programs'); const d=await r.json(); if(d.ok){ programs=d.programs; renderPrograms(); } }catch(e){}
+}
+async function loadPadsForProgram(){
+  pads = {};
+  if(activeProgramId){
+    try{ const r=await fetch('/api/pads?programId='+encodeURIComponent(activeProgramId)); const d=await r.json(); if(d.ok) d.pads.forEach(p=>{ pads[p.key]=p.trackId; }); }catch(e){}
+  }
+  renderPads();
+}
+async function scanLibrary(){
+  toast('Scanning...');
+  try{ const r=await fetch('/api/scan',{method:'POST'}); const d=await r.json(); if(d.ok){ toast('Scanned: '+d.count+' files'); await loadTracks(); } }catch(e){ toast('Scan failed'); }
+}
+async function addFolder(){
+  const f = await askText('Add folder to scan','C:\\\\path\\\\to\\\\media');
+  if(!f) return;
+  try{ const r=await fetch('/api/folders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'add',folder:f})}); const d=await r.json(); if(d.ok){ toast('Folder added'); await scanLibrary(); } }catch(e){ toast('Add folder failed'); }
+}
+function updateCounts(){ document.getElementById('libCount').textContent = filteredTracks.length; document.getElementById('pageInfo').textContent = filteredTracks.length+' tracks'; }
+
+// ---------- programs ----------
+function renderPrograms(){
+  const list=document.getElementById('programList'); if(!list) return; list.innerHTML='';
+  programs.forEach(prog=>{
+    const card=document.createElement('div');
+    card.className='prog-card'+(activeProgramId===prog.id?' active':'');
+    card.dataset.id=prog.id;
+    const head=document.createElement('div'); head.className='prog-head';
+    const name=document.createElement('span'); name.className='prog-name'; name.textContent=prog.name;
+    const del=document.createElement('button'); del.className='prog-del'; del.textContent='×';
+    del.addEventListener('click', e=>{ e.stopPropagation(); delProgram(prog.id); });
+    head.appendChild(name); head.appendChild(del); card.appendChild(head);
+    const tc=document.createElement('div'); tc.className='prog-tracks'; tc.textContent=(prog.trackIds||[]).length+' tracks'; card.appendChild(tc);
+    card.addEventListener('dragover', e=>{ e.preventDefault(); card.classList.add('dragover'); });
+    card.addEventListener('dragleave', ()=>card.classList.remove('dragover'));
+    card.addEventListener('drop', e=>{ e.preventDefault(); card.classList.remove('dragover'); const tid=e.dataTransfer.getData('text/plain'); if(tid) addToProgram(prog.id,tid); });
+    card.addEventListener('click', async e=>{
+      if(e.target.classList.contains('prog-del')) return;
+      activeProgramId = (activeProgramId===prog.id)? null : prog.id;
+      setAddMode(false); renderPrograms(); applyFilter(); await loadPadsForProgram();
+      toast(activeProgramId?('Active program: '+prog.name):'Pumili ng program');
+    });
+    list.appendChild(card);
+  });
+  if(programs.length===0){ const empty=document.createElement('div'); empty.style.fontSize='11px'; empty.style.color='var(--muted)'; empty.textContent='Walang program pa. Click + Program.'; list.appendChild(empty); }
+}
+async function newProgram(){
+  const name=await askText('Program name','hal. Wedding, Birthday');
+  if(!name) return;
+  const id=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
+  await fetch('/api/programs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',id,name,trackIds:[]})});
+  activeProgramId=id; pads={}; await loadPrograms(); applyFilter(); await loadPadsForProgram(); toast('Created program: '+name);
+}
+async function delProgram(id){
+  if(!confirm('Delete this program?')) return;
+  if(activeProgramId===id){ activeProgramId=null; pads={}; }
+  await fetch('/api/programs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})});
+  await fetch('/api/pads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'clear',programId:id})});
+  await loadPrograms(); applyFilter(); renderPads(); toast('Program deleted');
+}
+function addToProgram(pid, tid){
+  const prog=programs.find(p=>p.id===pid); if(!prog) return;
+  if(!prog.trackIds) prog.trackIds=[];
+  if(!prog.trackIds.includes(tid)) prog.trackIds.push(tid);
+  fetch('/api/programs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',id:pid,name:prog.name,trackIds:prog.trackIds})}).then(()=>{ loadPrograms(); applyFilter(); toast('Nadagdag sa '+prog.name); });
+}
+
+// ---------- library ----------
+function setAddMode(v){ addMode=v; const b=document.getElementById('toggleAdd'); if(b){ b.classList.toggle('on',addMode); b.textContent=addMode?'✓ Done':'➕ Add'; } }
+function applyFilter(){
+  const q=document.getElementById('libSearch').value.trim().toLowerCase();
+  let base=[];
+  if(activeProgramId){ const prog=programs.find(p=>p.id===activeProgramId); if(prog) base=addMode?tracks.slice():tracks.filter(t=>(prog.trackIds||[]).includes(t.id)); }
+  else base=tracks.slice();
+  filteredTracks = q? base.filter(t=>t.name.toLowerCase().includes(q)) : base.slice();
+  currentPage=0; renderLibrary();
+}
+function renderLibrary(){
+  const list=document.getElementById('libList'); list.innerHTML='';
+  const start=currentPage*pageSize; const page=filteredTracks.slice(start,start+pageSize);
+  const prog=activeProgramId?programs.find(p=>p.id===activeProgramId):null;
+  page.forEach(t=>{
+    const row=document.createElement('div');
+    row.className='lib-row'+(selectedTrackIds.has(t.id)?' selected':'');
+    row.draggable=true; row.dataset.id=t.id;
+    const dur=isFinite(t.duration)?t.duration.toFixed(1)+'s':'--';
+    let addBtn='';
+    if(addMode && prog){ addBtn=(prog.trackIds||[]).includes(t.id)?'<span class="inprog" title="Nasa program na">✓</span>':'<button class="addp" title="Add sa program">+</button>'; }
+    const delBtn='<button class="del" title="Delete">×</button>';
+    row.innerHTML=`<span class="name" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</span><span class="type">${t.type}</span><span class="dur">${dur}</span>${addBtn}${delBtn}`;
+    row.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain',t.id); });
+    row.addEventListener('click', e=>{
+      if(e.target.classList.contains('del')||e.target.classList.contains('addp')) return;
+      if(selectedTrackIds.has(t.id)) selectedTrackIds.delete(t.id); else selectedTrackIds.add(t.id);
+      row.classList.toggle('selected');
+    });
+    const del=row.querySelector('.del'); if(del) del.addEventListener('click', e=>{ e.stopPropagation(); deleteTrack(t.id); });
+    const ab=row.querySelector('.addp'); if(ab) ab.addEventListener('click', e=>{ e.stopPropagation(); if(activeProgramId) addToProgram(activeProgramId,t.id); });
+    row.addEventListener('dblclick', ()=> loadTrackToDeck('A', t.id));
+    list.appendChild(row);
+  });
+  if(page.length===0){
+    const empty=document.createElement('div'); empty.className='lib-empty';
+    if(!activeProgramId) empty.textContent='Pumili ng program sa kaliwa para makita ang mga track.';
+    else if(addMode && !tracks.length) empty.textContent='Walang media sa library. I-load muna ang mga file.';
+    else if(addMode) empty.textContent='Walang track na tumugma sa search.';
+    else empty.textContent='Walang track sa program na ito. I-click ang ➕ Add para magdagdag.';
+    list.appendChild(empty);
+    if(!tracks.length){ const lb=document.createElement('button'); lb.className='lib-load'; lb.textContent='📤 Upload Files (⚙)'; lb.style.display='block'; lb.style.margin='10px auto 0'; lb.addEventListener('click',()=>document.getElementById('uploadBtn').click()); list.appendChild(lb); }
+  }
+  document.getElementById('libCount').textContent=filteredTracks.length;
+}
+async function deleteTrack(id){
+  const t=tracks.find(x=>x.id===id); if(!t) return;
+  if(!confirm('Delete "'+t.name+'" sa library?')) return;
+  await fetch('/api/library?id='+encodeURIComponent(id),{method:'DELETE'});
+  for(const key of Object.keys(pads)){ if(pads[key]===id) delete pads[key]; }
+  if(decks.A.trackId===id){ const m=decks.A.media; if(m) m.pause(); decks.A.trackId=null; decks.A.playing=false; document.getElementById('nameA').textContent='— no track —'; document.getElementById('mediaAreaA').innerHTML='<span style="color:var(--muted);font-size:12px;">Load a track</span>'; syncPlayBtn('A'); }
+  selectedTrackIds.delete(id);
+  await loadTracks(); await loadPrograms(); await loadPadsForProgram(); renderPads(); toast('Na-delete: '+t.name);
+}
+
+// ---------- pads ----------
+function padKey(bank,index){ return bank+'_'+index; }
+function allAssignedIds(){ return new Set(Object.values(pads)); }
+function totalBanks(){ const assigned=Math.max(0,...Object.keys(pads).map(k=>parseInt(k.split('_')[0]))); const byTracks=Math.ceil(tracks.length/PADS_PER_BANK); return Math.max(1,assigned+1,byTracks); }
+function renderPadGrid(gridId, deck, infoId){
+  const grid=document.getElementById(gridId); grid.innerHTML='';
+  for(let i=0;i<PADS_PER_BANK;i++){
+    const key=padKey(currentBank,i);
+    const trackId=pads[key];
+    const track=trackId?tracks.find(t=>t.id===trackId):null;
+    const pad=document.createElement('div');
+    pad.className='pad '+(deck==='A'?'padA':'')+(track?'':' empty')+(playingPadKey===key+'_'+deck?' playing':'');
+    pad.dataset.key=key;
+    pad.innerHTML=`<span class="idx">${i+1}</span><span class="label">${track?escapeHtml(track.name):'empty'}</span><span class="remove">×</span><span class="decktag">${deck}</span>`;
+    pad.addEventListener('click', e=>{ if(e.target.classList.contains('remove')){ e.stopPropagation(); removePad(key); return; } onPadClick(key,deck); });
+    pad.addEventListener('contextmenu', e=>{ e.preventDefault(); removePad(key); });
+    pad.addEventListener('dragover', e=>e.preventDefault());
+    pad.addEventListener('drop', async e=>{
+      e.preventDefault();
+      const tid=e.dataTransfer.getData('text/plain');
+      if(!tid) return;
+      if(!activeProgramId){ toast('Pumili muna ng program bago mag-assign sa pad'); return; }
+      const ok=await assignPad(key,tid);
+      if(ok) addToProgram(activeProgramId,tid);
+    });
+    grid.appendChild(pad);
+  }
+  const info=document.getElementById(infoId); if(info) info.textContent='Bank '+(currentBank+1);
+}
+function renderPads(){ renderPadGrid('padGridA','A','bankInfoA'); }
+async function assignPad(key,trackId){
+  if(!activeProgramId){ toast('Pumili muna ng program'); return false; }
+  pads[key]=trackId;
+  await fetch('/api/pads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'assign',programId:activeProgramId,key,trackId})});
+  renderPads(); return true;
+}
+async function removePad(key){
+  if(!pads[key]) return;
+  delete pads[key];
+  if(activeProgramId) await fetch('/api/pads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'assign',programId:activeProgramId,key,trackId:''})});
+  renderPads(); toast('Naalis ang music sa button');
+}
+function onPadClick(key,deck){
+  const trackId=pads[key];
+  if(!trackId){ toast('Empty pad — drag a track onto it'); return; }
+  loadTrackToDeck(deck,trackId);
+  targetDeck=deck;
+  playingPadKey=key+'_'+deck;
+  renderPads();
+  setTimeout(()=>{ playingPadKey=null; renderPads(); },600);
+}
+
+// ---------- decks ----------
+function ensureDeckMedia(d){
+  let media=decks[d].media;
+  if(!media){
+    media=document.createElement('audio'); media.style.display='none';
+    const area=document.getElementById('mediaArea'+d); area.innerHTML=''; area.appendChild(media);
+    decks[d].media=media;
+    media.addEventListener('ended',()=>onDeckEnded(d));
+    media.addEventListener('timeupdate',()=>updateDeckSeek(d));
+    media.addEventListener('loadedmetadata',()=>{
+      const t=tracks.find(x=>x.id===decks[d].trackId);
+      if(t && !t.duration && isFinite(media.duration) && media.duration>0){ t.duration=media.duration; fetch('/api/library',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:t.id,duration:media.duration})}); }
+      document.getElementById('time'+d).textContent=fmtTime(0)+' / '+fmtTime(media.duration);
+    });
+  }
+  return media;
+}
+async function loadTrackToDeck(d, trackId){
+  const track=tracks.find(t=>t.id===trackId); if(!track) return;
+  const deck=decks[d];
+  if(deck.media) deck.media.pause();
+  const area=document.getElementById('mediaArea'+d); area.innerHTML='';
+  deck.media=null; deck.audioConnected=false; deck.trackId=trackId;
+  const isVideo=track.type==='video';
+  let media;
+  if(isVideo){
+    media=document.createElement('video');
+    media.setAttribute('playsinline','');
+    media.setAttribute('autoplay','');
+    media.setAttribute('controls','');
+    media.muted = false;
+    media.style.maxWidth='100%'; media.style.maxHeight='100%'; media.style.width='100%'; media.style.height='100%'; media.style.objectFit='contain'; media.style.background='#000';
+    area.appendChild(media);
+  } else {
+    media=document.createElement('audio'); media.style.display='none'; area.appendChild(media);
+    const canvas=document.createElement('canvas'); canvas.className='vizcanvas'; canvas.id='viz'+d; area.appendChild(canvas);
+    deck.vizCanvas=canvas;
+  }
+  deck.media=media;
+  media.src='/media?id='+encodeURIComponent(track.id);
+  media.load();
+  media.addEventListener('ended',()=>onDeckEnded(d));
+  media.addEventListener('timeupdate',()=>updateDeckSeek(d));
+  media.addEventListener('loadedmetadata',()=>{
+    if(!track.duration && isFinite(media.duration) && media.duration>0){ track.duration=media.duration; fetch('/api/library',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:track.id,duration:media.duration})}); }
+    document.getElementById('time'+d).textContent=fmtTime(0)+' / '+fmtTime(media.duration);
+  });
+  document.getElementById('name'+d).textContent=track.name;
+  document.getElementById('nowPlaying').textContent=track.name;
+  if(!deck.audioConnected){ ensureAudioCtx(); if(audioCtx.state==='suspended') audioCtx.resume(); connectDeckSource(d,media); deck.audioConnected=true; }
+  applySpeed(d); applyVol(d); applyEq(d);
+  toast('Loaded sa Deck '+d+': '+track.name);
+  // extended screen sync
+  ensureOutputWindow();
+  sendCmd('load', track.id);
+}
+function onDeckEnded(d){ decks[d].playing=false; syncPlayBtn(d); }
+function updateDeckSeek(d){
+  const deck=decks[d]; const media=deck.media; if(!media) return;
+  const seek=document.getElementById('seek'+d);
+  if(media.duration && isFinite(media.duration)){
+    if(document.activeElement!==seek) seek.value=Math.round(media.currentTime/media.duration*1000);
+    document.getElementById('time'+d).textContent=fmtTime(media.currentTime)+' / '+fmtTime(media.duration);
+  }
+}
+function syncPlayBtn(d){
+  const btn=document.getElementById('play'+d); if(!btn) return;
+  const playing=decks[d].media && !decks[d].media.paused;
+  btn.textContent=playing?'⏸ Pause':'▶ Play';
+  btn.classList.toggle('is-playing',playing);
+}
+function toggleDeck(d){
+  const deck=decks[d];
+  if(!deck.trackId){ toast('Walang track sa Deck '+d); return; }
+  if(!deck.media){ toast('Walang track sa Deck '+d); return; }
+  if(deck.media.paused){
+    ensureAudioCtx(); if(audioCtx.state==='suspended') audioCtx.resume();
+    deck.media.play().then(()=>{ deck.playing=true; syncPlayBtn(d); sendCmd('play'); }).catch(e=>{ toast('Play error: '+e.message); syncPlayBtn(d); });
+  } else {
+    deck.media.pause(); deck.playing=false; syncPlayBtn(d); sendCmd('pause');
+  }
+  reportState();
+}
+function stopDeck(d){
+  const deck=decks[d];
+  if(deck.media){ deck.media.pause(); deck.media.currentTime=0; }
+  deck.playing=false; syncPlayBtn(d);
+  sendCmd('stop');
+  reportState();
+}
+function nextInDeck(d){
+  const prog=activeProgramId?programs.find(p=>p.id===activeProgramId):null;
+  const list=prog?(prog.trackIds||[]):tracks.map(t=>t.id);
+  const idx=list.indexOf(decks[d].trackId);
+  const nextIdx=(idx+1)%list.length;
+  if(list[nextIdx]) loadTrackToDeck(d,list[nextIdx]);
+}
+
+// ---------- viz loop ----------
+function drawViz(){
+  const d='A'; const deck=decks[d];
+  if(deck.analyser){
+    const canvas=deck.vizCanvas;
+    if(canvas){
+      const ctx=canvas.getContext('2d');
+      const w=canvas.width=canvas.clientWidth*devicePixelRatio||1;
+      const h=canvas.height=canvas.clientHeight*devicePixelRatio||1;
+      ctx.clearRect(0,0,w,h);
+      const data=new Uint8Array(deck.analyser.frequencyBinCount);
+      deck.analyser.getByteTimeDomainData(data);
+      ctx.lineWidth=2*devicePixelRatio; ctx.strokeStyle='#00e5ff'; ctx.beginPath();
+      const slice=w/data.length; let x=0;
+      for(let i=0;i<data.length;i++){ const v=data[i]/128.0; const y=v*h/2; if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); x+=slice; }
+      ctx.stroke();
+    }
+    let sum=0; const data=new Uint8Array(deck.analyser.frequencyBinCount); deck.analyser.getByteTimeDomainData(data);
+    for(let i=0;i<data.length;i++){const v=data[i]-128;sum+=v*v;}
+    const rms=Math.sqrt(sum/data.length)/128;
+    document.getElementById('vuA').style.width=Math.min(100,rms*200)+'%';
+  }
+  requestAnimationFrame(drawViz);
+}
+
+// ---------- state reporting / remote sync ----------
+function reportState(){
+  const deck=decks['A'];
+  const pb={ trackId:deck.trackId, currentTime:deck.media?deck.media.currentTime:0, duration:deck.media?deck.media.duration:0, playing:deck.media?!deck.media.paused:false, volume:parseFloat(document.getElementById('volA').value), trackName:deck.trackId?(tracks.find(t=>t.id===deck.trackId)||{}).name:'' };
+  fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pb)}).catch(()=>{});
+}
+async function pollStatus(){
+  try{
+    const r=await fetch('/api/status'); const d=await r.json();
+    if(d.ok && d.commands && d.commands.length){
+      for(const c of d.commands) executeCommand(c);
+      await fetch('/api/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clear:true})});
+    }
+    updateScreenStatus();
+  }catch(e){}
+}
+function executeCommand(c){
+  switch(c.action){
+    case 'play': toggleDeck('A'); break;
+    case 'pause': if(decks.A.media && !decks.A.media.paused){ decks.A.media.pause(); decks.A.playing=false; syncPlayBtn('A'); } break;
+    case 'stop': stopDeck('A'); break;
+    case 'next': nextInDeck('A'); break;
+    case 'seek': if(decks.A.media && isFinite(c.value)) decks.A.media.currentTime=c.value; break;
+    case 'volume': document.getElementById('volA').value=c.value; applyVol('A'); break;
+    case 'load': if(c.value) loadTrackToDeck('A',c.value); break;
+    case 'mute': const m=decks.A.media; if(m) m.muted=!m.muted; break;
+  }
+}
+
+// ---------- bank fill ----------
+function autoFillBank(){
+  if(!activeProgramId){ toast('Pumili muna ng program'); return; }
+  const assigned=new Set(Object.values(pads));
+  const candidates=tracks.filter(t=>!assigned.has(t.id));
+  let idx=0;
+  for(let i=0;i<PADS_PER_BANK && idx<candidates.length;i++){
+    const key=padKey(currentBank,i);
+    if(!pads[key]){ pads[key]=candidates[idx].id; fetch('/api/pads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'assign',programId:activeProgramId,key,trackId:pads[key]})}); idx++; }
+  }
+  renderPads(); toast('Auto-filled bank '+(currentBank+1));
+}
+function fillAllBanks(){
+  if(!activeProgramId){ toast('Pumili muna ng program'); return; }
+  const assigned=new Set(Object.values(pads));
+  const candidates=tracks.filter(t=>!assigned.has(t.id));
+  let guard=0;
+  while(candidates.length && guard<10000){
+    guard++; let placed=false;
+    for(let bi=0;bi<200 && candidates.length;bi++){
+      for(let pi=0;pi<PADS_PER_BANK && candidates.length;pi++){
+        const key=padKey(bi,pi);
+        if(!pads[key]){ pads[key]=candidates.shift().id; fetch('/api/pads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'assign',programId:activeProgramId,key,trackId:pads[key]})}); placed=true; }
+      }
+    }
+    if(!placed) break;
+  }
+  renderPads(); toast('Filled all banks');
+}
+
+// ---------- init ----------
+async function init(){
+  try{ const r=await fetch('/api/status'); const d=await r.json(); const ip=d.lan_ip||'localhost'; const port=location.port||8090; document.getElementById('remoteLink').href='http://'+ip+':'+port+'/remote.html'; }catch(e){}
+  await loadTracks(); await loadPrograms();
+
+  const gearBtn=document.getElementById('gearBtn'); const gearMenu=document.getElementById('gearMenu');
+  gearBtn.addEventListener('click', e=>{ e.stopPropagation(); gearMenu.classList.toggle('open'); });
+  document.addEventListener('click', e=>{ if(!gearMenu.contains(e.target)) gearMenu.classList.remove('open'); });
+  document.getElementById('uploadBtn').addEventListener('click', ()=>{ gearMenu.classList.remove('open'); document.getElementById('uploadInput').click(); });
+  document.getElementById('uploadInput').addEventListener('change', async e=>{
+    const files = Array.from(e.target.files);
+    if(!files.length) return;
+    toast('Uploading '+files.length+' file(s)...');
+    let n=0;
+    const uploadedIds = [];
+    for(const file of files){
+      try{
+        const r = await fetch('/api/upload?name='+encodeURIComponent(file.name), {
+          method:'POST',
+          headers:{'Content-Type':'application/octet-stream'},
+          body: file
+        });
+        const d = await r.json();
+        if(d.ok){ n++; if(d.track && d.track.id) uploadedIds.push(d.track.id); }
+        else { toast('Upload failed: '+file.name+' — '+(d.err||'unknown')); }
+      }catch(err){ toast('Upload error: '+file.name); }
+    }
+    e.target.value='';
+    // add uploaded tracks to active program (so they appear in the filtered library)
+    if(activeProgramId && uploadedIds.length){
+      const prog = programs.find(p=>p.id===activeProgramId);
+      if(prog){
+        if(!prog.trackIds) prog.trackIds = [];
+        for(const id of uploadedIds){ if(!prog.trackIds.includes(id)) prog.trackIds.push(id); }
+        await fetch('/api/programs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',id:activeProgramId,name:prog.name,trackIds:prog.trackIds})});
+      }
+    }
+    await loadTracks();
+    await loadPrograms();
+    applyFilter();
+    if(activeProgramId) await loadPadsForProgram();
+    toast('Uploaded '+n+'/'+files.length+' files');
+  });
+  document.getElementById('openScreenBtn').addEventListener('click', ()=>{ gearMenu.classList.remove('open'); openOutputWindow(); });
+  document.getElementById('clearLib').addEventListener('click', async ()=>{
+    gearMenu.classList.remove('open');
+    if(!confirm('Clear entire library?')) return;
+    for(const t of [...tracks]) await fetch('/api/library?id='+encodeURIComponent(t.id),{method:'DELETE'});
+    pads={}; tracks=[]; programs=[]; activeProgramId=null;
+    await loadTracks(); await loadPrograms(); renderPads(); toast('Library cleared');
+  });
+  // auto-create default program if none exists (sidebar removed)
+  if(!programs.length){
+    const id = (crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
+    await fetch('/api/programs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',id,name:'Default',trackIds:[]})});
+    activeProgramId = id;
+    await loadPrograms();
+  } else if(!activeProgramId){
+    activeProgramId = programs[0].id;
+  }
+  await loadPadsForProgram();
+  applyFilter();
+  renderPads();
+
+  document.getElementById('libSearch').addEventListener('input', applyFilter);
+  document.getElementById('toggleAdd').addEventListener('click', ()=>{
+    if(!activeProgramId){ toast('Pumili muna ng program sa kaliwa'); return; }
+    setAddMode(!addMode); applyFilter();
+    toast(addMode?'Add mode: piliin ang music na idadagdag sa program':'Tapos na ang pag-add');
+  });
+
+
+  renderPads();
+  ['A'].forEach(d=>{
+    document.getElementById('play'+d).addEventListener('click', ()=>toggleDeck(d));
+    document.getElementById('stop'+d).addEventListener('click', ()=>stopDeck(d));
+    document.getElementById('next'+d).addEventListener('click', ()=>nextInDeck(d));
+    const sk=document.getElementById('seek'+d);
+    if(sk) sk.addEventListener('input', e=>{
+      const m=decks[d].media;
+      if(m && m.duration && isFinite(m.duration)){ m.currentTime=(parseFloat(e.target.value)/1000)*m.duration; sendCmd('seek', m.currentTime); }
+    });
+    document.getElementById('vol'+d).addEventListener('input', ()=>{ applyVol(d); reportState(); sendCmd('volume', parseFloat(document.getElementById('vol'+d).value)); });
+    document.getElementById('speed'+d).addEventListener('input', ()=>applySpeed(d));
+    ['low','mid','high'].forEach(b=>document.getElementById(b+d).addEventListener('input', ()=>applyEq(d)));
+  });
+
+  window.addEventListener('keydown', e=>{
+    if(e.target.tagName==='INPUT' || e.target.tagName==='SELECT') return;
+    switch(e.code){
+      case 'Space': e.preventDefault(); toggleDeck('A'); break;
+      case 'ArrowLeft': e.preventDefault(); if(decks.A.media) decks.A.media.currentTime=Math.max(0,decks.A.media.currentTime-5); break;
+      case 'ArrowRight': e.preventDefault(); if(decks.A.media) decks.A.media.currentTime=Math.min(decks.A.media.duration||0,decks.A.media.currentTime+5); break;
+      case 'ArrowUp': e.preventDefault(); document.getElementById('volA').value=Math.min(1,parseFloat(document.getElementById('volA').value)+0.05); applyVol('A'); break;
+      case 'ArrowDown': e.preventDefault(); document.getElementById('volA').value=Math.max(0,parseFloat(document.getElementById('volA').value)-0.05); applyVol('A'); break;
+      case 'KeyN': nextInDeck('A'); break;
+      case 'KeyF': if(outputWindow && !outputWindow.closed) outputWindow.focus(); break;
+    }
+  });
+
+  requestAnimationFrame(drawViz);
+  setInterval(pollStatus, 1000);
+  setInterval(reportState, 2000);
+  document.getElementById('statusText').textContent='Ready · '+tracks.length+' tracks';
+  document.getElementById('statusText2').textContent='Ready · '+tracks.length+' tracks';
+}
+
+init();
+</script>
+</body>
+</html>

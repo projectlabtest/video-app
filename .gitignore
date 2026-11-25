@@ -1,0 +1,15 @@
+# Build artifacts
+out/
+*.jar
+*.class
+
+# Data (user-specific)
+data/
+uploads/
+
+# Native app (large, bundled JRE)
+jpackage-output/
+jpackage-input/
+
+# Logs
+*.log
