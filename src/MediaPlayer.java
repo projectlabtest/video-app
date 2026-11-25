@@ -109,7 +109,7 @@ public class MediaPlayer {
         s.createContext("/api/upload", MediaPlayer::apiUpload);
         s.setExecutor(Executors.newCachedThreadPool());
         s.start();
-        log("MediaPlayer START port=" + PORT);
+        log("Video App START port=" + PORT);
         System.out.println("UI: http://localhost:" + PORT + "/");
         System.out.println("Remote: http://localhost:" + PORT + "/remote.html");
     }

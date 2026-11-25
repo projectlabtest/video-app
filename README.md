@@ -1,4 +1,4 @@
-# Media Player — Video (Extended Screen)
+# Video App — Video (Extended Screen)
 
 Video player na may **extended screen** support at **upload** feature. Kontrol sa main
 window, video display sa pangalawang monitor (projector/TV). Java-based, native desktop app.
